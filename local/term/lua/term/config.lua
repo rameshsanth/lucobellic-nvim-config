@@ -1,6 +1,7 @@
 ---@class TermManagerConfig
 ---@field defaults TermOpts Default terminal options
 ---@field terminals table<string, {cmd: string|string[], opts?: TermOpts}> Named terminal definitions
+---@field forward_osc string[] OSC selectors forwarded from embedded terminals to the host terminal
 
 ---@class TermManagerConfigModule
 ---@field config TermManagerConfig Current configuration
@@ -28,6 +29,7 @@ M.defaults = {
     start_insert = false, -- Don't auto-start insert mode to preserve cursor position
   },
   terminals = {},
+  forward_osc = { '9', '99', '777' },
 }
 
 function M.get() return vim.tbl_deep_extend('force', M.defaults, M.config or {}) end
