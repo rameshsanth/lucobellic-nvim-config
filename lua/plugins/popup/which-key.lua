@@ -1,5 +1,12 @@
 return {
   'folke/which-key.nvim',
+  keys = {
+    {
+      '<localleader>',
+      function() require('which-key.state').start({ keys = '<localleader>' }) end,
+      desc = 'which-key-trigger',
+    },
+  },
   opts = {
     preset = 'helix',
     delay = 300,
@@ -28,6 +35,5 @@ return {
       border = vim.g.winborder,
       wo = { winblend = vim.o.winblend },
     },
-    sort = { 'alphanum', 'local', 'order', 'mod' },
   },
 }

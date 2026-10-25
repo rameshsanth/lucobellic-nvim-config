@@ -4,7 +4,7 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = '_'
 vim.g.autoformat = false
-vim.g.markdown_folding = true
+vim.g.markdown_folding = false
 
 vim.g.winborder = vim.g.neovide_floating_shadow and 'solid' or 'single'
 vim.o.winborder = vim.g.winborder
@@ -61,6 +61,7 @@ vim.opt.cursorlineopt = 'both'
 vim.opt.number = false
 vim.opt.relativenumber = false
 vim.opt.wrap = false
+vim.opt.linebreak = true
 vim.opt.showbreak = '↪'
 vim.opt.breakindent = true
 
@@ -127,8 +128,5 @@ vim.opt.numberwidth = 1
 -- Set python3 host prog to speed up startup
 vim.g.python3_host_prog = '/usr/bin/python3'
 vim.g.lazyvim_python_lsp = 'ty'
-vim.g.lazyvim_ts_lsp = 'tsgo'
 
 vim.g.kind_filter = require('config.icons').kind_filter
-
-vim.opt.statuscolumn = [[%!v:lua.require'heirline'.eval_statuscolumn()]]

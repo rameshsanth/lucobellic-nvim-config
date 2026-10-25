@@ -4,10 +4,12 @@ return {
     optional = true,
     opts = {
       spec = {
-        { '<leader>lo', group = 'OpenCode', mode = { 'n', 'v' } },
+        { '<leader>l', group = 'llm', mode = { 'n', 'v' } },
         { '<leader>lc', group = 'Cursor', mode = { 'n', 'v' } },
         { '<leader>lg', group = 'Gemini', mode = { 'n', 'v' } },
-        { '<leader>l', group = 'llm', mode = { 'n', 'v' } },
+        { '<leader>lo', group = 'OpenCode', mode = { 'n', 'v' } },
+        { '<leader>lu', group = 'Claude', mode = { 'n', 'v' } },
+        { '<leader>lx', group = 'Codex', mode = { 'n', 'v' } },
       },
     },
   },
@@ -15,6 +17,13 @@ return {
     dir = vim.fn.stdpath('config') .. '/local/agents',
     name = 'agents',
     event = { 'User LazyBufEnter' },
+    keys = {
+      {
+        '<leader>lca',
+        function() require('plugins.ai.agents.cursor').pick_cursor_session() end,
+        desc = 'Cursor Attach Session',
+      },
+    },
     opts = {
       cursor = {
         executable = 'agent',
@@ -26,19 +35,10 @@ return {
         insert = false,
       },
       opencode = {
-        executable = 'opencode',
+        executable = 'opencode2',
         filetype = 'opencode',
         display_name = 'OpenCode',
         leader = '<leader>lo',
-        split = 'right',
-        focus = true,
-        insert = false,
-      },
-      opencode2 = {
-        executable = 'opencode2',
-        filetype = 'opencode2',
-        display_name = 'OpenCode2',
-        leader = '<leader>l2',
         split = 'right',
         focus = true,
         insert = false,
@@ -62,7 +62,7 @@ return {
         insert = false,
       },
       codex = {
-        executable = 'codex',
+        executable = vim.env.INSIDE_DOCKER and 'codex --no-daemon' or 'codex',
         filetype = 'codex',
         display_name = 'Codex',
         leader = '<leader>lx',

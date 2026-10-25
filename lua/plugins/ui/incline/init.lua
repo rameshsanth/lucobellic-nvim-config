@@ -17,10 +17,10 @@ local git_icons = {
 
 -- Handlers are checked in order; first match wins
 local handlers = {
-  require('plugins.ui.incline.snacks-terminal'),
-  require('plugins.ui.incline.overseer-output'),
-  require('plugins.ui.incline.edgy'),
   require('plugins.ui.incline.codecompanion'),
+  require('plugins.ui.incline.layout'),
+  require('plugins.ui.incline.overseer-output'),
+  require('plugins.ui.incline.snacks-terminal'),
 }
 
 local function get_diagnostic_label(props)
@@ -126,6 +126,11 @@ return {
       unlisted_buffers = false,
     },
     render = function(props)
+      local buffer_options = vim.bo[props.buf]
+      if buffer_options.buftype == 'nofile' and (not buffer_options.filetype or buffer_options.filetype == '') then
+        return {}
+      end
+
       for _, handler in ipairs(handlers) do
         if handler:match(props) then
           return handler:render(props)

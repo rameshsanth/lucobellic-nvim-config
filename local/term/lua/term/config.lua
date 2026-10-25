@@ -1,7 +1,11 @@
 ---@class TermManagerConfig
----@field defaults TermOpts Default terminal options
+---@field defaults TermManagerDefaultOpts Default terminal options
 ---@field terminals table<string, {cmd: string|string[], opts?: TermOpts}> Named terminal definitions
 ---@field forward_osc string[] OSC selectors forwarded from embedded terminals to the host terminal
+
+---@class TermManagerDefaultOpts: TermOpts
+---@field width number Window width
+---@field height number Window height
 
 ---@class TermManagerConfigModule
 ---@field config TermManagerConfig Current configuration
@@ -15,7 +19,7 @@ M.CONSTANTS = {
   MAX_SIZE = 0.999, -- Maximum terminal size (100%)
   DEFAULT_RESIZE_STEP = 0.1, -- Default resize increment (10%)
   BORDER_UPDATE_DELAY = 200, -- Delay for border update in ms
-  AUTOHIDE_DELAY = 100, -- Delay before re-enabling autohide
+  AUTO_HIDE_DELAY = 100, -- Delay before re-enabling auto hide
 }
 
 --- Default configuration

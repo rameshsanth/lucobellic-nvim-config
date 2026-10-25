@@ -5,9 +5,15 @@
 vim.api.nvim_clear_autocmds({ group = 'lazyvim_wrap_spell' })
 
 vim.api.nvim_create_autocmd({ 'FileType' }, {
-  pattern = { 'cpp' },
+  pattern = { 'cpp', 'ezcan', 'ezi' },
   command = 'setlocal commentstring=//\\ %s',
-  desc = 'Set // as default comment string for c++',
+  desc = 'Set // as default comment string for c++ and EZ DSLs',
+})
+
+vim.api.nvim_create_autocmd({ 'FileType' }, {
+  pattern = { 'ros' },
+  command = 'setlocal commentstring=#\\ %s',
+  desc = 'Set # as default comment string for ROS interfaces',
 })
 
 -- Terminal option
@@ -26,6 +32,8 @@ vim.api.nvim_create_autocmd({ 'TermOpen' }, {
   end,
   desc = 'Set terminal buffer options',
 })
+
+require('config.osc').setup({ selectors = { '9', '99', '777' } })
 
 -- Automatic save
 require('util.autosave').setup()

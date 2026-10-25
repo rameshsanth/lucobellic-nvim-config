@@ -128,6 +128,18 @@ return {
             { 'n', '<leader>b', false },
             {
               'n',
+              'g<C-x>',
+              require('diffview.actions').cycle_layout,
+              { desc = 'Cycle available layouts', repeatable = true },
+            },
+            {
+              'n',
+              '<C-s>',
+              require('plugins.git.diffview.amend').under_cursor,
+              { desc = 'Amend commit with staged file change' },
+            },
+            {
+              'n',
               'gq',
               function()
                 require('diffview.actions').toggle_files()
@@ -145,6 +157,7 @@ return {
               '<C-y>',
               function()
                 local view = require('diffview.lib').get_current_view()
+                ---@cast view FileHistoryView?
                 local file = view and view:infer_cur_file()
                 if not (file and file.absolute_path) then
                   vim.notify('No file under cursor', vim.log.levels.WARN)
@@ -168,35 +181,21 @@ return {
               require('plugins.git.diffview.util').open_containing_merge_history,
               { desc = 'Open containing merge history' },
             },
-            -- Fixup commit under cursor
-            {
-              'n',
-              '<C-s>',
-              function()
-                local lazy = require('diffview.lazy')
-                ---@type FileHistoryView|LazyModule
-                local FileHistoryView =
-                  lazy.access('diffview.scene.views.file_history.file_history_view', 'FileHistoryView')
-                local view = require('diffview.lib').get_current_view()
-                if view and view:instanceof(FileHistoryView.__get()) then
-                  ---@cast view DiffView|FileHistoryView
-                  local file = view:infer_cur_file()
-                  local item = view.panel:get_item_at_cursor()
-
-                  if file and item then
-                    local path = file.absolute_path
-                    vim.system({ 'git', 'stash', '--keep-index' })
-                    vim.system({ 'git', 'commit', '--fixup=' .. item.commit.hash, '--', path })
-                    vim.system({ 'git', 'stash', 'pop', '--index' })
-                    vim.schedule(function() vim.notify('Fixup ' .. item.commit.hash, vim.log.levels.INFO) end)
-                  end
-                end
-              end,
-              { desc = 'Fixup current file staged change' },
-            },
           },
           view = {
             { 'n', '<leader>b', false },
+            {
+              'n',
+              'g<C-x>',
+              require('diffview.actions').cycle_layout,
+              { desc = 'Cycle through available layouts', repeatable = true },
+            },
+            {
+              'n',
+              '<C-s>',
+              require('plugins.git.diffview.amend').under_cursor,
+              { desc = 'Amend commit with staged file change' },
+            },
             {
               'n',
               'gq',
@@ -208,6 +207,12 @@ return {
           },
           file_panel = {
             { 'n', '<leader>b', false },
+            {
+              'n',
+              'g<C-x>',
+              require('diffview.actions').cycle_layout,
+              { desc = 'Cycle available layouts', repeatable = true },
+            },
             {
               'n',
               'gq',

@@ -59,6 +59,10 @@ return {
     event = 'LspAttach',
     opts = function(_, opts)
       opts = vim.tbl_deep_extend('force', opts or {}, {
+        servers = {
+          tsc = { mason = false },
+          vtsls = { enabled = false },
+        },
         codelens = { enabled = false },
         inlay_hints = { enabled = false },
         diagnostics = {
@@ -91,6 +95,7 @@ return {
         mason = false,
         enabled = false,
       })
+
       require('lspconfig.ui.windows').default_options.border = vim.g.border.style
 
       return opts
@@ -237,19 +242,6 @@ return {
             { '<leader>wa', '<cmd>lua vim.lsp.buf.add_workspace_folder()<CR>' },
             { '<leader>wr', '<cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>' },
             { '<leader>rf', '<cmd>lua vim.lsp.buf.code_action({"refactor"})<CR>' },
-            {
-              '<leader>=',
-              function() require('lazyvim.util.format').format({ force = true }) end,
-              desc = 'Format Document',
-              has = 'documentFormatting',
-            },
-            {
-              '<leader>=',
-              function() require('lazyvim.util.format').format({ force = true }) end,
-              desc = 'Format Range',
-              mode = 'v',
-              has = 'documentRangeFormatting',
-            },
             {
               '<F2>',
               function() vim.lsp.buf.rename() end,

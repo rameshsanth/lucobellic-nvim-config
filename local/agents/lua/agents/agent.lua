@@ -2,7 +2,8 @@ local Util = require('agents.util')
 
 ---@class AgentsOpts
 ---@field display_name string Human-readable name (e.g., 'OpenCode')
----@field executable string Command to launch (e.g., 'opencode')
+---@field executable string|string[] Command to launch (e.g., 'opencode')
+---@field env? table<string, string> Environment overrides for the terminal
 ---@field filetype string Filetype to set on terminal buffer
 ---@field focus boolean
 ---@field insert boolean
@@ -12,7 +13,7 @@ local Util = require('agents.util')
 
 ---@class Agent
 ---@field display_name string
----@field executable string
+---@field executable string|string[]
 ---@field filetype string
 ---@field terminal_buf? integer
 ---@field terminal_job_id? integer
@@ -21,6 +22,15 @@ local Util = require('agents.util')
 local Agent = {}
 Agent.__index = Agent
 
+---@public
+---@param win integer
+function Agent:configure_window(win)
+  vim.api.nvim_set_option_value('list', false, { win = win, scope = 'local' })
+  -- Avoid wrapping during resize and horizontal scrolling at the right edge.
+  vim.api.nvim_set_option_value('wrap', false, { win = win, scope = 'local' })
+  vim.api.nvim_set_option_value('sidescrolloff', 0, { win = win, scope = 'local' })
+end
+
 --- Create a new terminal controller for a specific external agent/executable.
 --- Does NOT open the window or start the terminal job; call `agent:start(win)` afterward.
 ---@param opts AgentsOpts options for the managed terminal
@@ -28,6 +38,7 @@ Agent.__index = Agent
 ---@param win? integer existing window number to attach to
 ---@param job_id? integer existing buffer number to attach to
 ---@return Agent
+---@public
 function Agent.new(opts, buf, win, job_id)
   local self = setmetatable({
     display_name = opts.display_name,
@@ -43,6 +54,7 @@ function Agent.new(opts, buf, win, job_id)
     vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.terminal_buf })
     if win then
       vim.api.nvim_win_set_buf(win, self.terminal_buf)
+      self:configure_window(win)
     end
   end
 
@@ -52,11 +64,12 @@ end
 --- Open the terminal window and start the job process.
 --- Must be called after the agent has been registered in AgentManager.agents.
 ---@param win? integer existing window number to attach to
+---@public
 function Agent:start(win)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.terminal_buf })
 
   if not win then
-    vim.api.nvim_open_win(self.terminal_buf, self.opts.focus, { split = self.opts.split or 'right', win = 0 })
+    win = vim.api.nvim_open_win(self.terminal_buf, self.opts.focus, { split = self.opts.split or 'right', win = 0 })
   else
     vim.api.nvim_win_set_buf(win, self.terminal_buf)
   end
@@ -64,6 +77,7 @@ function Agent:start(win)
   if not self.terminal_job_id then
     self.terminal_job_id = vim.fn.jobstart(self.executable, {
       term = true,
+      env = self.opts.env,
       on_exit = function()
         self.terminal_job_id = nil
         if self.terminal_buf and vim.api.nvim_buf_is_valid(self.terminal_buf) then
@@ -73,12 +87,15 @@ function Agent:start(win)
       end,
     })
   end
+  -- Apply window options after terminal defaults and TermOpen handlers.
+  self:configure_window(win)
 end
 
 function Agent:buffer_valid() return self.terminal_buf and vim.api.nvim_buf_is_valid(self.terminal_buf) end
 function Agent:is_open() return #Util.buf_get_valid_wins(self.terminal_buf) > 0 end
 function Agent:job_valid() return self.terminal_job_id and vim.fn.jobwait({ self.terminal_job_id }, 0)[1] == -1 end
 
+---@public
 function Agent:focus()
   if not self:buffer_valid() then
     vim.notify('Terminal buffer is not valid', vim.log.levels.ERROR)
@@ -86,11 +103,13 @@ function Agent:focus()
   end
 
   local wins = Util.buf_get_valid_wins(self.terminal_buf)
+  local win = wins[1]
   if #wins > 0 then
-    vim.api.nvim_set_current_win(wins[1])
+    vim.api.nvim_set_current_win(win)
   else
-    vim.api.nvim_open_win(self.terminal_buf, self.opts.focus, { split = self.opts.split or 'right', win = 0 })
+    win = vim.api.nvim_open_win(self.terminal_buf, self.opts.focus, { split = self.opts.split or 'right', win = 0 })
   end
+  self:configure_window(win)
 
   if self.opts.insert then
     vim.cmd('startinsert')

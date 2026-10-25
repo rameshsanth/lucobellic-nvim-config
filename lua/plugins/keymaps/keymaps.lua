@@ -65,37 +65,56 @@ if vim.g.vscode then
   vim.keymap.set('n', '<C-r>', "<Cmd>call VSCodeNotify('redo')<CR>")
 end
 
+---@type fun()
 local function tab()
-  if vim.g.suggestions == 'copilot' and vim.lsp.inline_completion.get() then
-    return
-  end
-
-  if vim.g.suggestions == 'gitlab' then
-    local GhostText = require('gitlab.ghost_text')
-    local ns = vim.api.nvim_create_namespace('gitlab.GhostText')
-    local bufnr = vim.api.nvim_get_current_buf()
-    local has_suggestion = #vim.api.nvim_buf_get_extmarks(bufnr or 0, ns, 0, -1, { limit = 1 }) > 0
-    if has_suggestion then
-      GhostText.insert_ghost_text()
-      return
-    end
-  end
-
-  local ok_copilot_nes, copilot_nes = pcall(require, 'copilot-nes')
-  if ok_copilot_nes and copilot_nes.apply() then
-    return
-  end
-
-  local ok_sidekick, sidekick_nes = pcall(require, 'sidekick.nes')
-  if ok_sidekick and sidekick_nes.enabled and sidekick_nes.apply() then
-    return
-  end
-
   if require('blink.cmp').accept({ force = true }) then
     return
   end
 
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Tab>', true, false, true), 'n', false)
+end
+
+--- Reflow the visual selection into one sentence per line.
+---
+--- Only a single period followed by whitespace ends a sentence.
+--- Ellipses, numbered list markers, and periods joined to text remain unchanged.
+local function split_selected_sentences()
+  local anchor_line = vim.fn.getpos('v')[2]
+  local cursor_line = vim.fn.getpos('.')[2]
+  local start_line = math.min(anchor_line, cursor_line) - 1
+  local end_line = math.max(anchor_line, cursor_line)
+  local selected_lines = vim.api.nvim_buf_get_lines(0, start_line, end_line, false)
+  local selected_text = vim
+    .iter(selected_lines)
+    :map(
+      ---@param line string
+      ---@return string
+      function(line) return vim.trim(line) end
+    )
+    :join(' ')
+
+  local split_text = selected_text:gsub(
+    '()([^%.])%.(%s+)',
+    ---@param position integer
+    ---@param preceding_character string
+    ---@param whitespace string
+    ---@return string
+    function(position, preceding_character, whitespace)
+      local number_start = selected_text:sub(1, position):match('()%d+$')
+      if number_start and (number_start == 1 or selected_text:sub(number_start - 1, number_start - 1):match('%s')) then
+        return preceding_character .. '.' .. whitespace
+      end
+
+      return preceding_character .. '.\n'
+    end
+  )
+  local replacement_lines = vim.split(split_text, '\n', { plain = true })
+
+  if replacement_lines[#replacement_lines] == '' then
+    table.remove(replacement_lines)
+  end
+
+  vim.api.nvim_buf_set_lines(0, start_line, end_line, false, replacement_lines)
 end
 
 return {
@@ -117,8 +136,11 @@ return {
       '<esc>',
       function()
         vim.cmd('noh')
-        pcall(function() require('copilot-nes').cancel() end)
-        pcall(function() require('sidekick.nes').cancel() end)
+        -- Keep cursors until the insert edit reaches every cursor.
+        if vim.fn.mode() == 'n' then
+          local multicursor_namespace = vim.api.nvim_create_namespace('nvim.multicursor')
+          vim.api.nvim_buf_clear_namespace(0, multicursor_namespace, 0, -1)
+        end
         return '<esc>'
       end,
       expr = true,
@@ -127,11 +149,6 @@ return {
 
     -- save file
     { mode = { 'i', 'x', 'n', 's' }, '<C-s>', '<cmd>w<cr><esc>', desc = 'Save File' },
-
-    --------------------
-    -- Which Key
-    --------------------
-    { '<localleader>', '<cmd>lua require("which-key").show("' .. vim.g.maplocalleader .. '")<cr>' },
 
     --------------------
     -- Text Manipulation
@@ -169,6 +186,7 @@ return {
     { mode = { 'n', 'v' }, '<<', '<<', remap = false, desc = 'Decrease Indent' },
     { mode = 'x', '<', '<gv' },
     { mode = 'x', '>', '>gv' },
+    { mode = 'x', '<leader>c.', split_selected_sentences, desc = 'Split sentences at dots' },
 
     -- Move Lines
     {
@@ -186,39 +204,11 @@ return {
 
     { mode = { 'i', 'n' }, '<Tab>', tab, desc = 'Next suggestion' },
     {
-      mode = { 'i', 'n' },
-      '<S-Tab>',
-      function()
-        if not require('copilot-nes').apply() then
-          return '<S-Tab>'
-        end
-      end,
-      desc = 'Next suggestion',
-      expr = true,
-    },
-    {
       mode = 'v',
       'S',
-      function()
-        local char = vim.fn.getcharstr()
-        local bracket_pairs = {
-          ['('] = { '(', ')' },
-          [')'] = { '(', ')' },
-          ['['] = { '[', ']' },
-          [']'] = { '[', ']' },
-          ['{'] = { '{', '}' },
-          ['}'] = { '{', '}' },
-          ['<'] = { '<', '>' },
-          ['>'] = { '<', '>' },
-        }
-        local selected_text = require('util.util').get_visual_selection_text()
-        local start_pos, end_pos = require('util.util').get_visual_selection_range()
-        local left = bracket_pairs[char] and bracket_pairs[char][1] or char
-        local right = bracket_pairs[char] and bracket_pairs[char][2] or char
-        local lines = vim.split(left .. selected_text .. right, '\n', { plain = true })
-        vim.api.nvim_buf_set_text(0, start_pos[2] - 1, start_pos[3] - 1, end_pos[2] - 1, end_pos[3], lines)
-      end,
+      function() return require('plugins.keymaps.util.surround').visual() end,
       desc = 'Surround',
+      expr = true,
     },
 
     ------------------
@@ -258,10 +248,12 @@ return {
     ------------------
     {
       'gf',
+      mode = { 'n', 'x' },
       function()
         local bufnr = vim.api.nvim_get_current_buf()
-        if vim.b[bufnr].edgy_keys ~= nil and vim.b[bufnr].edgy_disable ~= true then
-          require('util.util').open_file(false)
+        local util = require('util.util')
+        if util.is_layout_managed(bufnr) or vim.bo[bufnr].buftype == 'terminal' then
+          util.open_file(false)
         else
           vim.cmd('normal! gf')
         end
@@ -270,10 +262,12 @@ return {
     },
     {
       'gF',
+      mode = { 'n', 'x' },
       function()
         local bufnr = vim.api.nvim_get_current_buf()
-        if vim.b[bufnr].edgy_keys ~= nil and vim.b[bufnr].edgy_disable ~= true then
-          require('util.util').open_file(true)
+        local util = require('util.util')
+        if util.is_layout_managed(bufnr) or vim.bo[bufnr].buftype == 'terminal' then
+          util.open_file(true)
         else
           vim.cmd('normal! gF')
         end

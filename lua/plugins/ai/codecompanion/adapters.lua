@@ -6,9 +6,9 @@ local interactions = vim.env.INSIDE_DOCKER
       inline = { adapter = 'cursor_cli', model = 'Auto' },
     }
   or {
-    cmd = { adapter = { name = 'cocodex', model = 'gpt-5.6-sol' } },
-    chat = { adapter = { name = 'cocodex', model = 'gpt-5.6-sol' } },
-    inline = { adapter = { name = 'cocodex', model = 'gpt-5.4-mini' } },
+    cmd = { adapter = { name = 'cocodex', model = 'gpt-6-luna' } },
+    chat = { adapter = { name = 'cocodex', model = 'gpt-6-luna' } },
+    inline = { adapter = { name = 'cocodex', model = 'gpt-6-luna' } },
   }
 
 return {
@@ -17,10 +17,17 @@ return {
     ---@type CodeCompanion.Adapters
     adapters = {
       http = {
+        ---@return CodeCompanion.HTTPAdapter
         cocodex = function()
-          return require('codecompanion.adapters').extend(
+          return require('codecompanion.adapters.http').extend(
             require('plugins.ai.codecompanion.adapters.http.codex'),
-            { schema = { reasoning_effort = { default = 'none' } } }
+            {
+              schema = {
+                model = { default = 'gpt-6-luna' },
+                reasoning_effort = { default = 'low' },
+                service_tier = { default = 'priority' },
+              },
+            }
           )
         end,
       },

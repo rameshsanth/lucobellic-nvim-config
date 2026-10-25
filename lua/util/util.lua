@@ -1,32 +1,61 @@
+---@class Util
 local M = {}
 
---- Find the first non-edgy, non-floating, normal editing window on the current tabpage.
+---Check whether layout.nvim is currently managing a buffer.
+---@public
+---@param bufnr? integer Defaults to the current buffer.
+---@return boolean
+function M.is_layout_managed(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local layout = vim.b[bufnr].layout
+  return type(layout) == 'table' and layout.enabled == true
+end
+
+---@param bufnr integer
+---@return boolean
+local function is_panel_buffer(bufnr)
+  return M.is_layout_managed(bufnr)
+end
+
+--- Find the first non-panel, non-floating, normal editing window on the current tabpage.
 --- Skips the calling window so the file is never opened back into the source buffer.
-local function find_non_edgy_win()
+local function find_non_panel_win()
   local source_win = vim.api.nvim_get_current_win()
   return vim.iter(vim.api.nvim_tabpage_list_wins(0)):find(function(winid)
     if winid == source_win then
       return false
     end
     local bufnr = vim.api.nvim_win_get_buf(winid)
-    local is_edgy = vim.b[bufnr].edgy_keys ~= nil and vim.b[bufnr].edgy_disable ~= true
     local is_floating = vim.api.nvim_win_get_config(winid).relative ~= ''
     local buftype = vim.bo[bufnr].buftype
-    return not is_edgy and not is_floating and (buftype == '' or buftype == 'acwrite')
+    return not is_panel_buffer(bufnr) and not is_floating and (buftype == '' or buftype == 'acwrite')
   end)
 end
 
---- Open file under cursor in a non-edgy window, replicating gf / gF behavior.
---- Respects &path and &suffixesadd exactly as native gf does.
---- If no valid non-edgy window exists, opens a new split (mirrors native gf fallback).
---- @param with_lnum? boolean If true, also jump to line number (gF behavior)
+---Open the file under the cursor or in the visual selection in an editing window.
+---@public
+---@param with_lnum? boolean Also recognize a trailing :lnum suffix.
 function M.open_file(with_lnum)
-  local cfile = vim.fn.expand('<cfile>')
+  local mode = vim.fn.mode()
+  local visual = mode == 'v' or mode == 'V' or mode == '\22'
+  local cfile
+  if visual then
+    cfile = vim.trim(table.concat(
+      vim.fn.getregion(vim.fn.getpos('v'), vim.fn.getpos('.'), {
+        type = mode,
+        exclusive = vim.o.selection == 'exclusive',
+      }),
+      ''
+    ))
+    vim.cmd.normal({ args = { vim.keycode('<Esc>') }, bang = true })
+  else
+    cfile = vim.fn.expand('<cfile>')
+  end
 
-  local fname = cfile
-  local lnum = nil
-  if with_lnum then
-    -- gF recognizes a trailing :lnum suffix on the filename
+  local fname, line = cfile:match('^(.+)#L(%d+)$')
+  local lnum = tonumber(line)
+  fname = fname or cfile
+  if not lnum and with_lnum then
     local name, n = cfile:match('^(.+):(%d+)$')
     if name and n then
       fname = name
@@ -47,18 +76,18 @@ function M.open_file(with_lnum)
     return
   end
 
-  local target_win = find_non_edgy_win()
+  local target_win = find_non_panel_win()
   if target_win then
     vim.api.nvim_set_current_win(target_win)
   else
-    -- No valid non-edgy window: open a new split, mirroring native gf fallback
+    -- No valid non-panel window: open a new split, mirroring native gf fallback
     vim.cmd('new')
   end
 
   vim.cmd('edit ' .. vim.fn.fnameescape(found))
 
   if lnum then
-    vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+    vim.api.nvim_win_set_cursor(0, { math.max(1, math.min(lnum, vim.api.nvim_buf_line_count(0))), 0 })
   end
 end
 

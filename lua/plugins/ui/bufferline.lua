@@ -128,36 +128,10 @@ local function navigate_buffer(direction)
   end
 end
 
---- @param position Edgy.Pos
-local function get_edgy_group_icons(position)
-  local result = {}
-  local statusline = require('edgy-group.stl').get_statusline(position)
-  for _, item in ipairs(statusline) do
-    table.insert(result, { text = item })
-    table.insert(result, { text = ' ', link = 'Normal' })
-  end
-  return result
-end
-
-local function get_layout_group_icons(position)
-  local result = {}
-  local statusline = require('layout').get_statusline(position)
-  vim.iter(statusline):each(function(item)
-    table.insert(result, { text = item })
-    table.insert(result, { text = ' ', link = 'Normal' })
-  end)
-  return result
-end
-
-local function get_group_icons(position)
-  if vim.g.layout == 'edgy' then
-    return get_edgy_group_icons(position)
-  else
-    return get_layout_group_icons(position)
-  end
-end
-
 local icon_hl_cache = {}
+
+--- Clear custom icon highlights so they are recreated with the current colorscheme.
+local function reset_icon_highlight_cache() icon_hl_cache = {} end
 
 --- Set the icon highlight color only for selected buffers
 --- @param state bufferline.Visibility
@@ -231,7 +205,6 @@ return {
     'akinsho/bufferline.nvim',
     cond = not (vim.g.started_by_firenvim or vim.env.KITTY_SCROLLBACK_NVIM == 'true'),
     event = function() return { 'User LazyBufEnter' } end,
-    dependencies = { { 'lucobellic/edgy-group.nvim', optional = true } },
     keys = function()
       return {
         {
@@ -301,16 +274,16 @@ return {
     end,
     opts = function()
       return {
+        highlights = {
+          fill = {
+            bg = { attribute = 'bg', highlight = 'StatusLine' },
+          },
+        },
         options = {
           ---@param bufnr integer
           ---@return boolean
           custom_filter = function(bufnr)
-            if vim.b[bufnr].edgy_keys ~= nil and vim.b[bufnr].edgy_disable ~= true then
-              return false
-            end
-
-            local layout = vim.b[bufnr].layout
-            if type(layout) == 'table' and layout.enabled == true then
+            if require('util.util').is_layout_managed(bufnr) then
               return false
             end
 
@@ -374,16 +347,21 @@ return {
             },
           },
           hover = { enabled = false },
-          custom_areas = {
-            left = function() return get_group_icons('left') end,
-            right = function() return get_group_icons('right') end,
-          },
         },
       }
     end,
     config = function(_, opts)
       require('bufferline.highlights').set_icon_highlight = set_icon_highlight
       require('bufferline').setup(opts)
+
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = vim.api.nvim_create_augroup('BufferlineCustomIconHighlights', { clear = true }),
+        callback = function()
+          reset_icon_highlight_cache()
+          require('bufferline.ui').refresh()
+        end,
+        desc = 'Refresh custom bufferline icon highlights',
+      })
     end,
   },
 }
